@@ -1,0 +1,39 @@
+import boto3
+
+# Create a VPC client
+vpc = boto3.client('vpc')
+
+# Get a list of all VPCs
+vpcs = vpc.describe_vpcs()['Vpcs']
+
+# Iterate over each VPC
+for vpc in vpcs:
+    # Get a list of all Elastic IPs associated with the VPC
+    eips = vpc.describe_addresses()['Addresses']
+    
+    # Iterate over each Elastic IP
+    for eip in eips:
+        # Check if the Elastic IP is associated with a resource
+        if eip['AssociationId'] is None:
+            # If the Elastic IP is not associated with a resource, release it
+            vpc.release_address(AllocationId=eip['AllocationId'])
+            
+            # Print a message indicating that the Elastic IP was released
+            print(f'Elastic IP {eip["PublicIp"]} was released.')
+            
+    # Get a list of all internet gateways associated with the VPC
+    internet_gateways = vpc.describe_internet_gateways()['InternetGateways']
+    
+    # Iterate over each internet gateway
+    for internet_gateway in internet_gateways:
+        # Detach the internet gateway from the VPC
+        vpc.detach_internet_gateway(InternetGatewayId=internet_gateway['InternetGatewayId'], VpcId=vpc['VpcId'])
+        
+        # Print a message indicating that the internet gateway was detached
+        print(f'Internet gateway {internet_gateway["InternetGatewayId"]} was detached from VPC {vpc["VpcId"]}.')
+        
+    # Create a VPC endpoint for S3
+    vpc.create_vpc_endpoint(VpcId=vpc['VpcId'], ServiceName='com.amazonaws.us-west-2.s3', RouteTableIds=[vpc['DefaultRouteTableId']], PolicyDocument='{"Statement":[{"Effect":"Allow","Principal":"*","Action":"*","Resource":"*"}]}')
+    
+    # Print a message indicating that the VPC endpoint was created
+    print(f'VPC endpoint for S3 was created for VPC {vpc["VpcId"]}.')
